@@ -11,8 +11,7 @@ app.get(products_url, (req, res) => {
     if (products) {
       res.send(products);
     } else {
-      console.log(err);
-      res.status(err.status);
+      res.status(500);
       res.send();
     }
   });
