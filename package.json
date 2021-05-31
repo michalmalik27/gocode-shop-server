@@ -1,7 +1,6 @@
 {
   "name": "gocode-shop-server",
   "version": "1.0.0",
-  "description": "",
   "main": "server.js",
   "dependencies": {
     "express": "^4.17.1",
@@ -14,5 +13,14 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/michalmalik27/gocode-shop-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/michalmalik27/gocode-shop-server/issues"
+  },
+  "homepage": "https://github.com/michalmalik27/gocode-shop-server#readme",
+  "description": ""
 }
