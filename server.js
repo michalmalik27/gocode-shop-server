@@ -1,11 +1,26 @@
 const express = require("express");
 const fs = require("fs");
+const mongoose = require("mongoose");
+const { title } = require("process");
 
 const app = express();
 app.use(express.json());
 
 const products_url = "/products";
 const products_file = "products.json";
+
+const ProductSchema = mongoose.Schema({
+  title: { type: String, required: [true, "Title required"] },
+  price: {
+    type: Number,
+    validate: [(v) => v > 0, "Must be a positive number"],
+    required: [true, "Price required"],
+  },
+  description: { type: String, required: [true, "Description required"] },
+  category: { type: String, required: [true, "Category required"] },
+  image: { type: String, required: [true, "Image required"] },
+});
+const Product = mongoose.model("Product", ProductSchema);
 
 const readProducts = (callback) => {
   fs.readFile(products_file, "utf8", (err, products) => {
@@ -22,23 +37,37 @@ const writeProducts = (products, callback) => {
 
 app.get(products_url, (req, res) => {
   const { search, category, minPrice, maxPrice } = req.query;
-  try {
-    readProducts((productsArray) => {
-      const result = productsArray.filter(
-        (p) =>
-          (!search ||
-            p.title.includes(search) ||
-            p.description.includes(search)) &&
-          (!category || p.category === category) &&
-          (!minPrice || p.price >= +minPrice) &&
-          (!maxPrice || p.price <= +maxPrice)
-      );
-      res.send(result);
-    });
-  } catch (error) {
-    res.status(500);
-    res.send();
-  }
+
+  const searchRegex = `/${search}/`;
+  const query = {
+    ...(category && { category: category }),
+    ...(minPrice && { price: { $gte: minPrice } }),
+    ...(maxPrice && { price: { $lte: maxPrice } }),
+    // ...(search && { title: /search/ }),
+  };
+  //https://stackoverflow.com/a/40560953
+
+  console.log(query);
+
+  //         p.description.includes(search)) &&
+  //       (!category || p.category === category) &&
+
+  Product.find(query)
+    .exec()
+    .then((products) => res.send(products));
+
+  // readProducts((productsArray) => {
+  //   const result = productsArray.filter(
+  //     (p) =>
+  //       (!search ||
+  //         p.title.includes(search) ||
+  //         p.description.includes(search)) &&
+  //       (!category || p.category === category) &&
+  //       (!minPrice || p.price >= +minPrice) &&
+  //       (!maxPrice || p.price <= +maxPrice)
+  //   );
+  //   res.send(result);
+  // });
 });
 
 app.get(`${products_url}/:id`, (req, res) => {
@@ -54,24 +83,13 @@ app.get(`${products_url}/:id`, (req, res) => {
 });
 
 app.post(`${products_url}`, (req, res) => {
-  try {
-    const { title, price, description, category, image } = req.body;
-    if (!title || !price || !description || !category || !image) {
+  const { title, price, description, category, image } = req.body;
+  Product.insertMany({ title, price, description, category, image })
+    .then((inserted) => res.send(inserted))
+    .catch((error) => {
       res.status(500);
-      res.send("Invalid model");
-      return;
-    }
-    readProducts((productsArray) => {
-      const id = Math.max(...productsArray.map((p) => p.id)) + 1;
-      const newProduct = { id, title, price, description, category, image };
-      writeProducts([...productsArray, newProduct], (err) => {
-        res.send(!!err ? "Failed" : "Success");
-      });
+      res.send(error.message);
     });
-  } catch (error) {
-    res.status(500);
-    res.send();
-  }
 });
 
 app.put(`${products_url}/:id`, (req, res) => {
@@ -123,4 +141,14 @@ app.delete(`${products_url}/:id`, (req, res) => {
   }
 });
 
-app.listen(8082);
+mongoose
+  .connect("mongodb://localhost/my_database", {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    useFindAndModify: false,
+    useCreateIndex: true,
+  })
+  .then(() => {
+    app.listen(8080);
+    console.log("Connected...");
+  });
