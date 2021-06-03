@@ -7,7 +7,6 @@ const app = express();
 app.use(express.json());
 
 const products_url = "/products";
-const products_file = "products.json";
 
 const ProductSchema = mongoose.Schema({
   title: { type: String, required: [true, "Title required"] },
@@ -20,70 +19,47 @@ const ProductSchema = mongoose.Schema({
   category: { type: String, required: [true, "Category required"] },
   image: { type: String, required: [true, "Image required"] },
 });
+
 const Product = mongoose.model("Product", ProductSchema);
-
-const readProducts = (callback) => {
-  fs.readFile(products_file, "utf8", (err, products) => {
-    const productsArray = JSON.parse(products);
-    callback(productsArray);
-  });
-};
-
-const writeProducts = (products, callback) => {
-  fs.writeFile(products_file, JSON.stringify(products), (err) => {
-    callback(err);
-  });
-};
 
 app.get(products_url, (req, res) => {
   const { search, category, minPrice, maxPrice } = req.query;
 
-  const searchRegex = `/${search}/`;
   const query = {
-    ...(category && { category: category }),
-    ...(minPrice && { price: { $gte: minPrice } }),
-    ...(maxPrice && { price: { $lte: maxPrice } }),
-    // ...(search && { title: /search/ }),
+    ...(!!category && { category: category }),
+    ...(!!minPrice && { price: { $gte: minPrice } }),
+    ...(!!maxPrice && { price: { $lte: maxPrice } }),
+    ...(!!search && {
+      $or: [
+        { title: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ],
+    }),
   };
-  //https://stackoverflow.com/a/40560953
-
-  console.log(query);
-
-  //         p.description.includes(search)) &&
-  //       (!category || p.category === category) &&
 
   Product.find(query)
     .exec()
-    .then((products) => res.send(products));
-
-  // readProducts((productsArray) => {
-  //   const result = productsArray.filter(
-  //     (p) =>
-  //       (!search ||
-  //         p.title.includes(search) ||
-  //         p.description.includes(search)) &&
-  //       (!category || p.category === category) &&
-  //       (!minPrice || p.price >= +minPrice) &&
-  //       (!maxPrice || p.price <= +maxPrice)
-  //   );
-  //   res.send(result);
-  // });
+    .then((products) => res.send(products))
+    .catch((error) => {
+      res.status(500);
+      res.send(error.message);
+    });
 });
 
 app.get(`${products_url}/:id`, (req, res) => {
-  try {
-    readProducts((productsArray) => {
-      const product = productsArray.find((item) => item.id === +req.params.id);
-      res.send(product);
+  const { id } = req.params;
+
+  Product.findById(id)
+    .then((product) => res.send(product))
+    .catch((error) => {
+      res.status(500);
+      res.send(error.message);
     });
-  } catch (error) {
-    res.status(500);
-    res.send();
-  }
 });
 
 app.post(`${products_url}`, (req, res) => {
   const { title, price, description, category, image } = req.body;
+
   Product.insertMany({ title, price, description, category, image })
     .then((inserted) => res.send(inserted))
     .catch((error) => {
@@ -93,52 +69,34 @@ app.post(`${products_url}`, (req, res) => {
 });
 
 app.put(`${products_url}/:id`, (req, res) => {
-  try {
-    const { title, price, description, category, image } = req.body;
-    const { id } = req.params;
+  const { id } = req.params;
+  const { title, price, description, category, image } = req.body;
 
-    readProducts((productsArray) => {
-      const product = productsArray.find((p) => p.id === +id);
-      if (!product) {
-        res.status(500);
-        res.send("Product not exists");
-        return;
-      }
+  const updateQuery = {
+    ...(!!title && { title }),
+    ...(!!price && { price }),
+    ...(!!description && { description }),
+    ...(!!category && { category }),
+    ...(!!image && { image }),
+  };
 
-      product.title = title || product.title;
-      product.price = price || product.price;
-      product.description = description || product.description;
-      product.category = category || product.category;
-      product.image = image || product.image;
-
-      const updatedProductsArray = productsArray.map((p) =>
-        p.id === +id ? product : p
-      );
-
-      writeProducts(updatedProductsArray, (err) => {
-        res.send(!!err ? "Failed" : "Success");
-      });
+  Product.findByIdAndUpdate(id, updateQuery, { new: true })
+    .then((product) => res.send(product))
+    .catch((error) => {
+      res.status(500);
+      res.send(error.message);
     });
-  } catch (error) {
-    res.status(500);
-    res.send();
-  }
 });
 
 app.delete(`${products_url}/:id`, (req, res) => {
-  try {
-    readProducts((productsArray) => {
-      const products = productsArray.filter(
-        (item) => item.id !== +req.params.id
-      );
-      writeProducts(products, (err) => {
-        res.send(!!err ? "Failed" : "Success");
-      });
+  const { id } = req.params;
+
+  Product.findByIdAndRemove(id)
+    .then((product) => res.send(product))
+    .catch((error) => {
+      res.status(500);
+      res.send(error.message);
     });
-  } catch (error) {
-    res.status(500);
-    res.send();
-  }
 });
 
 mongoose
