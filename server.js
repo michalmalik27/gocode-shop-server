@@ -2,6 +2,7 @@ const express = require("express");
 const fs = require("fs");
 const mongoose = require("mongoose");
 const { title } = require("process");
+require("dotenv").config();
 
 const app = express();
 app.use(express.json());
@@ -73,7 +74,7 @@ app.put(`${products_url}/:id`, (req, res) => {
   const { title, price, description, category, image } = req.body;
 
   const updateQuery = {
-    ...(!!title && { title }),
+    ...(title && { title }),
     ...(!!price && { price }),
     ...(!!description && { description }),
     ...(!!category && { category }),
@@ -99,8 +100,10 @@ app.delete(`${products_url}/:id`, (req, res) => {
     });
 });
 
+const connectionString = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}/${process.env.DB_NAME}?retryWrites=true&w=majority`;
+
 mongoose
-  .connect("mongodb://localhost/my_database", {
+  .connect(connectionString, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     useFindAndModify: false,
