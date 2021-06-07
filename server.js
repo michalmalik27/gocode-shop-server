@@ -6,8 +6,9 @@ require("dotenv").config();
 
 const app = express();
 app.use(express.json());
+app.use(express.static("client/build"));
 
-const products_url = "/products";
+const products_url = "/api/products";
 
 const ProductSchema = mongoose.Schema({
   title: { type: String, required: [true, "Title required"] },
@@ -110,6 +111,6 @@ mongoose
     useCreateIndex: true,
   })
   .then(() => {
-    app.listen(8080);
+    app.listen(process.env.PORT || 9090);
     console.log("Connected...");
   });
